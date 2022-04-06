@@ -15,7 +15,7 @@ def normalize(A):
 
 
 def build_hypergraph(X, n_neighbors, metric='cosine'):
-    knn = NearestNeighbors(n_neighbors=50, metric=metric).fit(X)
+    knn = NearestNeighbors(n_neighbors=n_neighbors, metric=metric).fit(X)
     H = knn.kneighbors_graph(X)
     return H
 
