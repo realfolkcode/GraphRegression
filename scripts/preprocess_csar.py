@@ -30,8 +30,6 @@ import time
 import multiprocessing as mp
 openbabel.obErrorLog.SetOutputLevel(0)
 
-from pandarallel import pandarallel
-
 def file_extension (filename):
     return os.path.splitext(filename)[1][1:]
 
@@ -74,10 +72,11 @@ def pocket_atom_num (pocket_name):
 def read_molecule(molecule_name):
     '''Use pybel to load molecule. Format will be determined by extension'''
     fmt = file_extension(molecule_name)
-    if fmt in pybel.informats:
-        return pybel.readfile(fmt, molecule_name)
-    else:
-        raise ValueError("Unsupported molecule file format " + fmt + " while loading " + molecule_name)
+    return pybel.readfile(fmt, molecule_name)
+    #if fmt in pybel.informats:
+    #    return pybel.readfile(fmt, molecule_name)
+    #else:
+    #    raise ValueError("Unsupported molecule file format " + fmt + " while loading " + molecule_name)
     
 ## function -- feature
 #def gen_feature(ligand_name, pocket_name, featurizer):
@@ -333,13 +332,6 @@ def random_split(dataset_size, split_ratio=0.9, seed=0, shuffle=True):
     train_idx, valid_idx = indices[:split], indices[split:]
     return train_idx, valid_idx
 
-def add_y(df):
-    df['value'] = 0.5**(((df['rmsd'] - 1.5) * 4)**2 / 4)
-    df.loc[df['rmsd'] < 1.5, ['value']] = 1
-    df.loc[df['rmsd'] > 2, ['value']] = 0.5**((df['rmsd']**2) / 4)
-    df['value'] = df.value.array*np.exp(df.energy.array)
-    return df
-
 def construct_data(dataframe, cutoff):
     """Constructs datasets from processed dataframe"""
 
@@ -361,26 +353,17 @@ def construct_data(dataframe, cutoff):
 def process_dataset(dataset_source, output_path, cutoff, dataset_name):
     """Read dataset from dataset_name. Save processed dataset to output_path 
     Paths in dataset are relative to the file with dataset """
-
-    pandarallel.initialize(progress_bar=True, use_memory_fs=False)
     
     if dataset_source.endswith('.tsv'):
        df = pd.read_csv(dataset_source, sep='\t')
     elif dataset_source.endswith('.csv'):
        df = pd.read_csv(dataset_source)
 
-    # add label
-    if 'value' not in df.columns:
-        if 'energy' in df.columns and 'rmsd' in df.columns:
-            df = add_y(df)
-        else:
-            raise ValueError('Needs label')
-
     # Updating paths to relative to the dataset_name
     rootdir = os.path.dirname(dataset_source)
-    df['ligand'] = df['ligand'].parallel_apply(lambda row: os.path.join(rootdir, row))
-    df['pocket'] = df['pocket'].parallel_apply(lambda row: os.path.join(rootdir, row))
-    df['protein'] = df['protein'].parallel_apply(lambda row: os.path.join(rootdir, row))
+    df['ligand'] = df['ligand'].apply(lambda row: os.path.join(rootdir, row))
+    df['pocket'] = df['pocket'].apply(lambda row: os.path.join(rootdir, row))
+    df['protein'] = df['protein'].apply(lambda row: os.path.join(rootdir, row))
 
     # atomic sets for long-range interactions
     atom_types    = [6,7,8,9,15,16,17,35,53]
@@ -389,7 +372,7 @@ def process_dataset(dataset_source, output_path, cutoff, dataset_name):
     # atomic feature generation
     print("Generating features for", len(df), "protein-ligand pairs")
     tic = time.perf_counter()
-    df['result'] = df.parallel_apply(lambda x: gen_feature(x.ligand, x.pocket), axis = 1)    
+    df['result'] = df.apply(lambda x: gen_feature(x.ligand, x.pocket), axis = 1)    
     toc = time.perf_counter()
     print(f"Generated atomic features in {toc - tic:0.4f} seconds")
     print(df['result'].isna().sum(), "problematic complexes are excluded")
@@ -401,7 +384,7 @@ def process_dataset(dataset_source, output_path, cutoff, dataset_name):
     print("Calculating interaction features:")
     keys = [(i,j) for i in atom_types_ for j in atom_types]
     tic = time.perf_counter()
-    df['result'] = df.parallel_apply(lambda x: {**x.result,
+    df['result'] = df.apply(lambda x: {**x.result,
         **{'type_pair':pairwise_atomic_type(x.ligand,x.protein, atom_types, atom_types_, keys)},
         **{'pk': x.value}}, axis=1)
     toc = time.perf_counter()
@@ -431,10 +414,10 @@ def process_dataset(dataset_source, output_path, cutoff, dataset_name):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset_file', type=str)
+    parser.add_argument('--dataset_file', type=str, default='./csar_processed/csar_df.csv')
     parser.add_argument('--output_path', type=str, default='./data/')
     parser.add_argument('--cutoff', type=float, default=5.)
-    parser.add_argument('--dataset_name', type=str, default='dataset')
+    parser.add_argument('--dataset_name', type=str, default='csar')
     args = parser.parse_args()
     #process_dataset(args.data_path_core, args.data_path_refined, args.dataset_name, args.output_path, args.cutoff)
     featurizer = Featurizer(save_molecule_codes=False)
