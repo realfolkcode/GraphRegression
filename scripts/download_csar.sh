@@ -7,3 +7,4 @@ cd "$PARENT_PATH"
 CSAR_URL="1u0EpAi7d9rF7j8RdkMCFROSXh8RNhXCo"
 
 gdown --id $CSAR_URL --output "../data/csar_processed.zip"
+unzip -aq "../data/csar_processed.zip" -d "../data"
