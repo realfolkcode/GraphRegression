@@ -109,7 +109,15 @@ def gen_feature(ligand_name, pocket_name):
         assert (pocket_features[:, charge_idx] != 0).any()
         assert (ligand_features[:, :9].sum(1) != 0).all()
     except:
-        print([ligand_name, pocket_name])
+        if (ligand_features[:, charge_idx] != 0).any() and (ligand_features[:, :9].sum(1) != 0).all():
+            print('ligand ok')
+        else:
+            print('ligand error')
+        if (pocket_features[:, charge_idx] != 0).any():
+            print('pocket ok')
+        else:
+            print('pocket error')
+        #print([ligand_name, pocket_name])
         return {'error':1}
 
     # try:
