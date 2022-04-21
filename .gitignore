@@ -1,3 +1,4 @@
 csar_processed/
 scripts/__pycache__
 *.zip
+*.txt
