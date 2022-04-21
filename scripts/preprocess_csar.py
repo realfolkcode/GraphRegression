@@ -335,7 +335,7 @@ def random_split(dataset_size, split_ratio=0.9, seed=0, shuffle=True):
 def construct_data(dataframe, cutoff):
     """Constructs datasets from processed dataframe"""
 
-    data_dict = dict(zip(dataframe.name, dataframe.result))
+    data_dict = dict(zip(dataframe.pdb, dataframe.result))
 
     set_data, set_pk = [], []
 
